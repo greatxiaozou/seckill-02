@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<generatorConfiguration>
+    <!--A.配置mysql驱动路径  -->
+    <context id="my" targetRuntime="MyBatis3">
+
+        <!--1. value="true"去掉注释  ，如果不去掉注释的时候，
+                第二次生成的时候不会再后面追加内容，但是去掉注释的时候，
+                在第二次以后需要生成文件的时候先把它删掉，再生成，
+                否则就会在原来的文件后面追加内容-->
+        <commentGenerator>
+            <property name="suppressAllComments" value="true" />
+        </commentGenerator>
+
+        <!--2.加载连接数据库信息  -->
+        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                        connectionURL="jdbc:mysql://localhost:3306/seckill01?serverTimezone=GMT&amp;useSSL=false&amp;useUnicode=true&amp;characterEncoding=utf-8"
+                        userId="root"
+                        password="123456"/>
+
+        <!--3.生成DataObject类存放位置 -->
+        <javaModelGenerator targetPackage="top.greatxiaozou.dataobject"
+                            targetProject="src/main/java">
+            <!--targetProject=  指定包所在的位置，只需要到src/man/java  -->
+            <property name="enableSubPackages" value="true"/>
+            <property name="trimStrings" value="true"/>
+            <!--如果包不存在，创建一个  -->
+        </javaModelGenerator>
+
+        <!--4.生成映射文件包名和位置 -->
+        <sqlMapGenerator targetPackage="mapping"
+                         targetProject="src/main/resources"><!-- 指定包的位置 -->
+            <property name="enableSubPackages" value="true"/><!--如果包不存在创建一个  -->
+        </sqlMapGenerator>
+
+        <!--5.生成dao层的包和位置  -->
+        <javaClientGenerator targetPackage="top.greatxiaozou.dao" type="XMLMAPPER"
+                             targetProject="src/main/java">
+            <property name="enableSubPackages" value="true"/>
+        </javaClientGenerator>
+
+        <!--6. 我要生成的表  可以一次性生成多张表 tableName是表名   domainObjectName是实体名 -->
+<!--        <table tableName="user_info" domainObjectName="UserDo"-->
+<!--               enableCountByExample="false"-->
+<!--               enableDeleteByExample="false"-->
+<!--               enableSelectByExample="false"-->
+<!--               selectByExampleQueryId="false"-->
+<!--               enableUpdateByExample="false"/>-->
+
+<!--        <table tableName="user_password" domainObjectName="UserPasswprdDo"-->
+<!--               enableCountByExample="false"-->
+<!--               enableDeleteByExample="false"-->
+<!--               enableSelectByExample="false"-->
+<!--               selectByExampleQueryId="false"-->
+<!--               enableUpdateByExample="false"/>-->
+
+<!--        <table tableName="item" domainObjectName="ItemDo"-->
+<!--               enableCountByExample="false"-->
+<!--               enableDeleteByExample="false"-->
+<!--               enableSelectByExample="false"-->
+<!--               selectByExampleQueryId="false"-->
+<!--               enableUpdateByExample="false"/>-->
+<!--        <table tableName="item_stock" domainObjectName="ItemStockDo"-->
+<!--               enableCountByExample="false"-->
+<!--               enableDeleteByExample="false"-->
+<!--               enableSelectByExample="false"-->
+<!--               selectByExampleQueryId="false"-->
+<!--               enableUpdateByExample="false"/>-->
+
+<!--        <table tableName="order_info" domainObjectName="OrderDo"-->
+<!--               enableCountByExample="false"-->
+<!--               enableDeleteByExample="false"-->
+<!--               enableSelectByExample="false"-->
+<!--               selectByExampleQueryId="false"-->
+<!--               enableUpdateByExample="false"/>-->
+<!--        <table tableName="sequence_info" domainObjectName="SequenceDo"-->
+<!--               enableCountByExample="false"-->
+<!--               enableDeleteByExample="false"-->
+<!--               enableSelectByExample="false"-->
+<!--               selectByExampleQueryId="false"-->
+<!--               enableUpdateByExample="false"/>-->
+        <table tableName="promo" domainObjectName="PromoDo"
+               enableCountByExample="false"
+               enableDeleteByExample="false"
+               enableSelectByExample="false"
+               selectByExampleQueryId="false"
+               enableUpdateByExample="false"/>
+
+
+    </context>
+</generatorConfiguration>
