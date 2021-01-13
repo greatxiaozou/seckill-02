@@ -1,6 +1,8 @@
 package top.greatxiaozou.controller;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.error.EmBusinessError;
@@ -21,6 +23,9 @@ public class OrderController extends BaseController {
     @Autowired
     private HttpServletRequest httpServletRequest;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     //用户下单接口
     @ResponseBody
     @RequestMapping(method = {RequestMethod.POST},value = "/createorder",consumes = {CONTENT_TYPE_FORMED})
@@ -28,12 +33,20 @@ public class OrderController extends BaseController {
                                         @RequestParam("amount")Integer amount,
                                         @RequestParam(value = "promoId",required = false)Integer promoId) throws BusinessException {
         //获取用户登录信息
-        Boolean isLogin = (Boolean) httpServletRequest.getSession().getAttribute("IS_LOGIN");
-        if (isLogin == null || isLogin == false ){
-            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录！不能下单");
+        String token = httpServletRequest.getParameterMap().get("token")[0];
+
+        if (StringUtils.isEmpty(token)){
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录，无法下单");
         }
 
-        UserModel userModel = (UserModel) httpServletRequest.getSession().getAttribute("LOGIN_USER");
+
+        UserModel userModel = (UserModel) redisTemplate.opsForValue().get(token);
+        if(userModel==null){
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录，无法下单");
+        }
+
+
+        //UserModel userModel = (UserModel) httpServletRequest.getSession().getAttribute("LOGIN_USER");
 
         OrderModel orderModel = orderService.createOrder(userModel.getId(), promoId,itemId, amount);
 

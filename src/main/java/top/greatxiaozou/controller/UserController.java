@@ -4,6 +4,7 @@ import com.alibaba.druid.util.StringUtils;
 import org.apache.tomcat.util.security.MD5Encoder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import sun.security.provider.MD5;
@@ -20,6 +21,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Controller("user")
 @RequestMapping("/user")
@@ -29,6 +32,9 @@ public class UserController extends BaseController{
     UserService userService;
     @Autowired
     protected HttpServletRequest httpServletRequest;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     //用户登录接口
     @RequestMapping(value = "/login",method = {RequestMethod.POST},consumes = {CONTENT_TYPE_FORMED})
@@ -45,10 +51,23 @@ public class UserController extends BaseController{
         UserModel userModel = userService.validateLogin(telphone, EncodeUtils.EncodeByMd5(password));
 
         //将登录凭证加入到用户登录成功的session内
-        this.httpServletRequest.getSession().setAttribute("IS_LOGIN",true);
-        httpServletRequest.getSession().setAttribute("LOGIN_USER",userModel);
+//        this.httpServletRequest.getSession().setAttribute("IS_LOGIN",true);
+//        this.httpServletRequest.getSession().setAttribute("LOGIN_USER",userModel);
 
-        return CommonReturnType.create(null);
+        //修改为若用户登录验证成功后将对应的登录信息和登录凭证一同存入redis中
+
+
+        //生产登录token--使用uuid
+        String uuidToken = UUID.randomUUID().toString();
+        uuidToken = uuidToken.replace("-","");
+
+        //建立token和用户登录态之间的联系
+        redisTemplate.opsForValue().set(uuidToken,userModel);
+        redisTemplate.expire(uuidToken,1, TimeUnit.HOURS);
+
+
+        //下发token
+        return CommonReturnType.create(uuidToken);
     }
 
 
@@ -126,6 +145,8 @@ public class UserController extends BaseController{
         //返回通用对象
         return CommonReturnType.create(userVO);
     }
+
+    //=======================================================//
 
     //将user模型转换未User视图
     private UserVO convertFromModel(UserModel userModel){
