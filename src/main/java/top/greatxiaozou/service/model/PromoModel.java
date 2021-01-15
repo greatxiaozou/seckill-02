@@ -7,7 +7,6 @@ import org.joda.time.DateTime;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
@@ -20,6 +19,7 @@ public class PromoModel implements Serializable {
 
     //秒杀活动开始时间
     private DateTime startDate;
+
     //秒杀活动结束时间
     private DateTime endDate;
 

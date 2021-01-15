@@ -2,16 +2,13 @@ package top.greatxiaozou.service.impl;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import top.greatxiaozou.dao.ItemDoMapper;
 import top.greatxiaozou.dao.ItemStockDoMapper;
-import top.greatxiaozou.dao.PromoDoMapper;
-import top.greatxiaozou.dao.SequenceDoMapper;
 import top.greatxiaozou.dataobject.ItemDo;
 import top.greatxiaozou.dataobject.ItemStockDo;
-import top.greatxiaozou.dataobject.SequenceDo;
 import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.error.EmBusinessError;
 import top.greatxiaozou.service.ItemService;
@@ -22,9 +19,8 @@ import top.greatxiaozou.validator.ValidationResult;
 import top.greatxiaozou.validator.ValidatorImpl;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +36,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private PromoService promoService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Override
     @Transactional
@@ -64,6 +63,7 @@ public class ItemServiceImpl implements ItemService {
         return this.getItemById(itemModel.getId());
     }
 
+    //展示所有商品
     @Override
     public List<ItemModel> listItem() {
         List<ItemDo> itemDos = itemDoMapper.listItem();
@@ -92,15 +92,27 @@ public class ItemServiceImpl implements ItemService {
 
         //获取活动商品信息
         PromoModel promoModel = promoService.getPromoByItemId(itemModel.getId());
-        System.out.println(promoModel);
+        //System.out.println(promoModel);
 
         //将活动聚合到itemModel中
         if (promoModel != null && promoModel.getStatus().intValue() != 3){
             itemModel.setPromoModel(promoModel);
         }
 
+        return itemModel;
+    }
 
 
+    //缓存方法
+    @Override
+    public ItemModel getItemByIdInCache(Integer id) {
+        ItemModel itemModel = (ItemModel)redisTemplate.opsForValue().get("item_validate_" + id);
+
+        if(itemModel == null){
+            itemModel = this.getItemById(id);
+            redisTemplate.opsForValue().set("item_validate_"+id,itemModel);
+            redisTemplate.expire("item_validate_"+id,10, TimeUnit.MINUTES);
+        }
         return itemModel;
     }
 

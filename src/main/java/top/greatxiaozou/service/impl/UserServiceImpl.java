@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.greatxiaozou.dao.UserDoMapper;
@@ -17,6 +18,8 @@ import top.greatxiaozou.service.model.UserModel;
 import top.greatxiaozou.validator.ValidationResult;
 import top.greatxiaozou.validator.ValidatorImpl;
 
+import java.util.concurrent.TimeUnit;
+
 @Service
 public class UserServiceImpl implements UserService {
     @Autowired
@@ -27,6 +30,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserPasswprdDoMapper userPasswprdDoMapper;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     //根据id获取信息方法
     @Override
@@ -40,6 +46,19 @@ public class UserServiceImpl implements UserService {
         //通过用户Id获取对应的用户加密密码信息
         UserPasswprdDo userPasswprdDo = userPasswprdDoMapper.selectByUserId(id);
         return convertFromDataObject(userDo,userPasswprdDo);
+    }
+
+    @Override
+    public UserModel getUserByIdInCache(Integer id) {
+        UserModel userModel = (UserModel) redisTemplate.opsForValue().get("user_validate_"+id);
+
+        if(userModel == null){
+            userModel = this.getUserById(id);
+            redisTemplate.opsForValue().set("user_validate_"+id,userModel);
+            redisTemplate.expire("user_validate_"+id,10, TimeUnit.MINUTES);
+        }
+
+        return userModel;
     }
 
     //登录方法

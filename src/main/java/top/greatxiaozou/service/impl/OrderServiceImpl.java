@@ -44,18 +44,21 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderModel createOrder(Integer userId, Integer promoId,Integer itemId, Integer amount) throws BusinessException {
         //1. 校验下单状态，下单商品是否存在，用户是否合法，购买数量是否正确
-        ItemModel itemModel = itemService.getItemById(itemId);
+        ItemModel itemModel = itemService.getItemByIdInCache(itemId);
         if (itemModel == null){
             throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR,"商品不存在");
         }
 
-        UserModel userModel = userService.getUserById(userId);
+        //2. 校验用户是否合法
+        UserModel userModel = userService.getUserByIdInCache(userId);
+
         if (userModel == null){
             throw new BusinessException(EmBusinessError.USER_NOT_EXIST);
         }
         if (amount<=0 || amount>99){
             throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR,"数量信息不正确");
         }
+
         //校验活动信息
         if (promoId !=null){
             //校验对应活动是否存在这个适用商品
@@ -91,6 +94,7 @@ public class OrderServiceImpl implements OrderService {
 
         //入库
         orderDoMapper.insertSelective(orderDo);
+
         //销量增加
         itemService.increaseSales(itemId,amount);
 
