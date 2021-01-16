@@ -11,6 +11,7 @@ import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.response.CommonReturnType;
 import top.greatxiaozou.service.CacheService;
 import top.greatxiaozou.service.ItemService;
+import top.greatxiaozou.service.PromoService;
 import top.greatxiaozou.service.model.ItemModel;
 
 import java.math.BigDecimal;
@@ -30,6 +31,9 @@ public class ItemController extends BaseController  {
 
     @Autowired
     private CacheService cacheService;
+
+    @Autowired
+    private PromoService promoService;
 
     //创建商品的接口
     @ResponseBody
@@ -70,12 +74,15 @@ public class ItemController extends BaseController  {
 
         }
 
-        //若reds内不存在对应的itemModel，则访问下游的service
+        //若redis内不存在对应的itemModel，则访问下游的service
         if(itemModel == null){
             itemModel = itemService.getItemById(id);
             //设置itemModel到redis内
             redisTemplate.opsForValue().set("item_"+id,itemModel);
             redisTemplate.expire("item_"+id,10, TimeUnit.MINUTES);
+            //库存进入缓存
+            redisTemplate.opsForValue().set("promo_item_stock_"+id,itemModel.getStock());
+            redisTemplate.expire("promo_item_stock_"+id,10,TimeUnit.MINUTES);
         }
 
         //填充本地缓存
@@ -102,6 +109,17 @@ public class ItemController extends BaseController  {
 
         return CommonReturnType.create(vos);
     }
+
+    //活动发布
+    @RequestMapping(value = "/publishpromo",method = {RequestMethod.GET})
+    @ResponseBody
+    public CommonReturnType publishPromo(@RequestParam(name = "id")Integer id){
+        promoService.publishPromo(id);
+
+        return CommonReturnType.create(null);
+    }
+
+
 
 
     //================convert方法==================//

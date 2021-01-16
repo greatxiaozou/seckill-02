@@ -3,10 +3,13 @@ package top.greatxiaozou.service.impl;
 import org.joda.time.DateTime;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import top.greatxiaozou.dao.PromoDoMapper;
 import top.greatxiaozou.dataobject.PromoDo;
+import top.greatxiaozou.service.ItemService;
 import top.greatxiaozou.service.PromoService;
+import top.greatxiaozou.service.model.ItemModel;
 import top.greatxiaozou.service.model.PromoModel;
 
 import java.math.BigDecimal;
@@ -16,6 +19,11 @@ public class PromoServiceImpl implements PromoService {
     @Autowired
     private PromoDoMapper promoDoMapper;
 
+    @Autowired
+    private ItemService itemService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Override
     public PromoModel getPromoByItemId(Integer itemId) {
@@ -35,6 +43,21 @@ public class PromoServiceImpl implements PromoService {
         }
 
         return promoModel;
+
+    }
+
+    @Override
+    public void publishPromo(Integer promoId) {
+        //通过活动Id获取活动
+        PromoDo promoDo = promoDoMapper.selectByPrimaryKey(promoId);
+        if (promoDo.getItemId()==null || promoDo.getItemId().intValue()==0){
+            return;
+        }
+
+        ItemModel itemModel = itemService.getItemById(promoDo.getItemId());
+
+        //将库存同步到Redis内部
+        redisTemplate.opsForValue().set("promo_item_stock_"+itemModel.getId(),itemModel.getStock());
 
     }
 

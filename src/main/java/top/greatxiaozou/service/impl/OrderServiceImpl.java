@@ -11,6 +11,7 @@ import top.greatxiaozou.dataobject.OrderDo;
 import top.greatxiaozou.dataobject.SequenceDo;
 import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.error.EmBusinessError;
+import top.greatxiaozou.mq.MqProducer;
 import top.greatxiaozou.service.ItemService;
 import top.greatxiaozou.service.OrderService;
 import top.greatxiaozou.service.UserService;
@@ -36,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private SequenceDoMapper sequenceDoMapper;
+
 
 
 
