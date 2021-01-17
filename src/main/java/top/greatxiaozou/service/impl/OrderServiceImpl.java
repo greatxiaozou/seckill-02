@@ -5,10 +5,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import top.greatxiaozou.dao.OrderDoMapper;
 import top.greatxiaozou.dao.SequenceDoMapper;
+import top.greatxiaozou.dao.StockLogDoMapper;
 import top.greatxiaozou.dataobject.OrderDo;
 import top.greatxiaozou.dataobject.SequenceDo;
+import top.greatxiaozou.dataobject.StockLogDo;
 import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.error.EmBusinessError;
 import top.greatxiaozou.mq.MqProducer;
@@ -38,13 +43,16 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private SequenceDoMapper sequenceDoMapper;
 
+    @Autowired
+    private StockLogDoMapper stockLogDoMapper;
+
 
 
 
 
     @Override
     @Transactional
-    public OrderModel createOrder(Integer userId, Integer promoId,Integer itemId, Integer amount) throws BusinessException {
+    public OrderModel createOrder(Integer userId, Integer itemId,Integer promoId, Integer amount,String stockLogId) throws BusinessException{
         //1. 校验下单状态，下单商品是否存在，用户是否合法，购买数量是否正确
         ItemModel itemModel = itemService.getItemByIdInCache(itemId);
         if (itemModel == null){
@@ -76,6 +84,8 @@ public class OrderServiceImpl implements OrderService {
         if (!b){
             throw new BusinessException(EmBusinessError.STOCK_NOT_ENOUGH);
         }
+
+
         //3. 订单入库
         OrderModel orderModel = new OrderModel();
         orderModel.setItemId(itemId);
@@ -99,6 +109,37 @@ public class OrderServiceImpl implements OrderService {
 
         //销量增加
         itemService.increaseSales(itemId,amount);
+
+        //设置库存流水状态为成功
+        StockLogDo stockLogDo = stockLogDoMapper.selectByPrimaryKey(stockLogId);
+        if (stockLogDo == null){
+            //一般不会到这一步
+            throw new BusinessException(EmBusinessError.UNKONW_ERROR,"库存流水获取失败");
+        }
+        //将流水状态设置为成功
+        stockLogDo.setStatus(2);
+        stockLogDoMapper.updateByPrimaryKeySelective(stockLogDo);
+
+        //用于测试消息中间件是否会进行回调
+        try {
+            Thread.sleep(30000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //springboot提供的一个方法，在最近的一个事务(Transaction注解方法）被commit之后才会执行
+//        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+//            @Override
+//            public void afterCommit() {
+//                //异步更新库存
+//                boolean myResult = itemService.asyncDecreaseStock(itemId, amount);
+//                if (!myResult){
+//                    //如果异步消息发送失败，则回滚
+//                    itemService.increaseSales(itemId,amount);
+//                    throw new BusinessException(EmBusinessError.MQ_SEND_FAIL);
+//                }
+//            }
+//        });
+
 
         //返回前端
         return orderModel;

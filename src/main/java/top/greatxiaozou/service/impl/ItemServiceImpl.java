@@ -1,9 +1,6 @@
 package top.greatxiaozou.service.impl;
 
-import org.apache.rocketmq.client.exception.MQBrokerException;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.remoting.exception.RemotingException;
+
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -11,8 +8,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.greatxiaozou.dao.ItemDoMapper;
 import top.greatxiaozou.dao.ItemStockDoMapper;
+import top.greatxiaozou.dao.StockLogDoMapper;
 import top.greatxiaozou.dataobject.ItemDo;
 import top.greatxiaozou.dataobject.ItemStockDo;
+import top.greatxiaozou.dataobject.StockLogDo;
 import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.error.EmBusinessError;
 import top.greatxiaozou.mq.MqProducer;
@@ -25,6 +24,7 @@ import top.greatxiaozou.validator.ValidatorImpl;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -48,7 +48,11 @@ public class ItemServiceImpl implements ItemService {
     @Autowired
     private MqProducer mqProducer;
 
+    @Autowired
+    private StockLogDoMapper stockLogDoMapper;
 
+
+    //创建商品
     @Override
     @Transactional
     public ItemModel createItem(ItemModel itemModel) throws BusinessException {
@@ -85,6 +89,7 @@ public class ItemServiceImpl implements ItemService {
         return list;
     }
 
+    //根据ID获取商品信息
     @Override
     public ItemModel getItemById(Integer id) {
         ItemDo itemDo = itemDoMapper.selectByPrimaryKey(id);
@@ -135,27 +140,54 @@ public class ItemServiceImpl implements ItemService {
         Long res = redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue() * -1);
         if (res >= 0){
             //更新库存成功
-            boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
-            if (!mqResult){
-                //失败，回滚
-                redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
-                return false;
-            }
             return true;
-
         }else {
-            //更新库存失败
-            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+            //更新库存失败,缓存回滚
+            increaseStock(itemId,amount);
             return false;
         }
                 
     }
-
+    //销量增加
     @Override
     @Transactional
     public void increaseSales(Integer itemId, Integer amount) throws BusinessException {
         itemDoMapper.increaseSales(itemId,amount);
     }
+
+    //异步更新库存的方法
+    @Override
+    public boolean asyncDecreaseStock(Integer itemId, Integer amount) {
+        boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
+        return mqResult;
+    }
+
+    @Override
+    public boolean increaseStock(Integer itemId, Integer amount) throws BusinessException {
+        redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+        return true;
+    }
+
+    //初始化流水并插入
+    @Override
+    @Transactional
+    public String initStockLog(Integer itemId, Integer amount) {
+        StockLogDo stockLogDo = new StockLogDo();
+        stockLogDo.setItemId(itemId);
+        stockLogDo.setAmount(amount);
+        stockLogDo.setStockLogId(UUID.randomUUID().toString().replace("-",""));
+        stockLogDo.setStatus(1);
+
+        //
+        stockLogDoMapper.insertSelective(stockLogDo);
+
+        return stockLogDo.getStockLogId();
+
+    }
+
+
+
+
 
     //========================convert方法======================//
     //将model对象转化为itemdo对象

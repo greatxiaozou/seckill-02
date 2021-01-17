@@ -1,7 +1,8 @@
 package top.greatxiaozou.dao;
 
+import org.springframework.stereotype.Repository;
 import top.greatxiaozou.dataobject.UserPasswprdDo;
-
+@Repository
 public interface UserPasswprdDoMapper {
     int deleteByPrimaryKey(Integer id);
 

@@ -16,9 +16,11 @@ import org.springframework.stereotype.Component;
 import top.greatxiaozou.dao.ItemStockDoMapper;
 
 import javax.annotation.PostConstruct;
-import java.util.List;
 import java.util.Map;
 
+/**
+ * 消息中间件的消费者端，获取消息并进行操作
+ */
 @Component
 public class MqConsumer {
 

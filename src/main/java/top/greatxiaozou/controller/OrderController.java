@@ -6,7 +6,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import top.greatxiaozou.error.BusinessException;
 import top.greatxiaozou.error.EmBusinessError;
+import top.greatxiaozou.mq.MqProducer;
 import top.greatxiaozou.response.CommonReturnType;
+import top.greatxiaozou.service.ItemService;
 import top.greatxiaozou.service.OrderService;
 import top.greatxiaozou.service.model.OrderModel;
 import top.greatxiaozou.service.model.UserModel;
@@ -25,6 +27,13 @@ public class OrderController extends BaseController {
 
     @Autowired
     private RedisTemplate redisTemplate;
+
+    @Autowired
+    private MqProducer producer;
+
+    @Autowired
+    private ItemService itemService;
+
 
     //用户下单接口
     @ResponseBody
@@ -48,7 +57,17 @@ public class OrderController extends BaseController {
 
         //UserModel userModel = (UserModel) httpServletRequest.getSession().getAttribute("LOGIN_USER");
 
-        OrderModel orderModel = orderService.createOrder(userModel.getId(), promoId,itemId, amount);
+        //OrderModel orderModel = orderService.createOrder(userModel.getId(), promoId,itemId, amount);
+
+        //加入库存流水init状态
+        String stockLogId = itemService.initStockLog(itemId, amount);
+
+
+        //加入流水之后，再完成对应的下单事务型消息机制
+        boolean result = producer.transactionAsyncReduceStock(userModel.getId(),itemId,promoId,amount,stockLogId);
+        if(!result){
+            throw new BusinessException(EmBusinessError.UNKONW_ERROR,"下单失败");
+        }
 
         return CommonReturnType.create(null);
     }
