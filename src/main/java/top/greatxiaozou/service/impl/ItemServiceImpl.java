@@ -137,12 +137,16 @@ public class ItemServiceImpl implements ItemService {
         //int affectedRow = itemStockDoMapper.decreaseStock(itemId, amount);
 
         //减库存缓存化
+        //res表示increment之后还有多少
         Long res = redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue() * -1);
-        if (res >= 0){
+        if (res > 0){
             //更新库存成功
             return true;
-        }else {
-            //更新库存失败,缓存回滚
+        }else if (res == 0) {
+            //打上库存以售罄的表示
+            redisTemplate.opsForValue().set("promo_item_stock_invalid_"+itemId,"true");
+            return true;
+        }else {    //更新库存失败,缓存回滚
             increaseStock(itemId,amount);
             return false;
         }
