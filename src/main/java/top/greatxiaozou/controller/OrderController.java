@@ -1,4 +1,5 @@
 package top.greatxiaozou.controller;
+import com.google.common.util.concurrent.RateLimiter;
 import io.netty.util.internal.StringUtil;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,11 +16,18 @@ import top.greatxiaozou.service.OrderService;
 import top.greatxiaozou.service.PromoService;
 import top.greatxiaozou.service.model.OrderModel;
 import top.greatxiaozou.service.model.UserModel;
+import top.greatxiaozou.utils.CodeUtil;
 
 import javax.annotation.PostConstruct;
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.awt.image.RenderedImage;
+import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.*;
 
+@SuppressWarnings("all")
 @CrossOrigin(origins = {"*"},allowCredentials = "true")
 @Controller("order")
 @RequestMapping("/order")
@@ -44,16 +52,46 @@ public class OrderController extends BaseController {
 
     private ExecutorService executorService;
 
+    private RateLimiter orderCreateRateLimiter;
+
+    //初始化线程池
     @PostConstruct
     public void init(){
         executorService = Executors.newFixedThreadPool(20);
+        orderCreateRateLimiter = RateLimiter.create(250);
+    }
+
+    //获取验证码接口
+    @RequestMapping(value = "/generateverifycode",method = {RequestMethod.POST,RequestMethod.GET})
+    @ResponseBody
+    public void generateVerifyCode(HttpServletResponse response) throws BusinessException, IOException {
+        String token = httpServletRequest.getParameterMap().get("token")[0];
+        if (StringUtils.isEmpty(token)){
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录，不能生成验证码");
+        }
+        UserModel userModel = (UserModel) redisTemplate.opsForValue().get(token);
+        if(userModel==null){
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录，不能生成验证码");
+        }
+
+
+        Map<String, Object> map = CodeUtil.generateCodeAndPic();
+        redisTemplate.opsForValue().set("verify_code_"+userModel.getId(),map.get("code"));
+        redisTemplate.expire("verify_code_"+userModel.getId(),5,TimeUnit.MINUTES);
+        ImageIO.write((RenderedImage) map.get("codePic"),"jpeg",response.getOutputStream());
+
     }
 
 
+
+
+
+    //生成秒杀令牌接口
     @RequestMapping(value = "/generatetoken",method = {RequestMethod.POST},consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
     public CommonReturnType generatetoken(@RequestParam("itemId")Integer itemId,
-                                          @RequestParam("promoId")Integer promoId) throws BusinessException {
+                                          @RequestParam("promoId")Integer promoId,
+                                          @RequestParam("verifyCode")String verifyCode) throws BusinessException {
 
         //获取用户登录信息
         String token = httpServletRequest.getParameterMap().get("token")[0];
@@ -61,10 +99,21 @@ public class OrderController extends BaseController {
         if (StringUtils.isEmpty(token)){
             throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录，无法下单");
         }
+
         UserModel userModel = (UserModel) redisTemplate.opsForValue().get(token);
         if(userModel==null){
             throw new BusinessException(EmBusinessError.USER_NOT_LOGIN,"用户未登录，无法下单");
         }
+
+        //通过verifycode验证码验证有效性
+        String redisVerifyCode = (String)redisTemplate.opsForValue().get("verify_code_" + userModel.getId());
+        if (redisVerifyCode.isEmpty()){
+            throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR,"请求非法");
+        }
+        if (!redisVerifyCode.equalsIgnoreCase(verifyCode)){
+            throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR,"请求非法，验证码错误");
+        }
+
 
         //获取秒杀访问令牌
         String killToken = promoService.generateSecondKillToken(promoId, itemId, userModel.getId());
@@ -85,6 +134,10 @@ public class OrderController extends BaseController {
                                         @RequestParam("amount")Integer amount,
                                         @RequestParam(value = "promoId",required = false)Integer promoId,
                                         @RequestParam(value = "promoToken",required = false)String promoToken) throws BusinessException {
+
+        if (!orderCreateRateLimiter.tryAcquire()){
+            throw new BusinessException(EmBusinessError.RATELIMIT);
+        }
 
 
         //获取用户登录信息
