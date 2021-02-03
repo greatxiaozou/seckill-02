@@ -31,7 +31,7 @@ spring:
       pool:
         max-active: 50
         min-idle: 20
-
+#设置MQ的名字服务器地址和订阅的topic
 mq:
   nameserver:
     addr: 121.196.63.136:9876
