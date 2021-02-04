@@ -34,6 +34,8 @@ public class GlobalExceptionHandler {
             responseData.put("errMsg","url绑定路由问题");
         }else if (ex instanceof NoHandlerFoundException){
             responseData.put("errCode",EmBusinessError.UNKONW_ERROR.getErrCode());
+
+
             responseData.put("errMsg","未找到对应路径，请检查url是否正确");
         }
         return CommonReturnType.create(responseData,"fail");
